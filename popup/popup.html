@@ -14,12 +14,26 @@
   <div id="pomodoro" class="tab-content active"><h1>Pomodoro Time</h1></div>
   <div id="timer" class="tab-content"><h1>Timer</h1></div>
   <div id="settings" class="tab-content">
-    <select id="listType" name="listType">
+
+    <select id="listType" class="black/white list">
       <option value="blacklist">Blacklist</option>
       <option value="whitelist">Whitelist</option>
     </select>
-    <button type="submit">Add</button>
+
+    <button type="submit" class="add-btn">Add</button>
+
+    <form class="url-form">
+      <label for="urlInput">URL</label>
+      <input id="urlInput" type="text" placeholder="https://example.com" />
+    </form>
+
     <ul class="list-content"></ul>
+
+    <div class="theme-toggle">
+      <button type="button" class="light">Light</button>
+      <button type="button" class="auto">Auto</button>
+      <button type="button" class="dark">Dark</button>
+    </div>
 
   </div>
 
