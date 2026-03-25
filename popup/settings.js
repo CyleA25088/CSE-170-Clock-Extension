@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const body = document.body;
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
   let autoMode = true;
+  let allowedSites = [];
 
   function applySystemTheme() {
     if (!autoMode) return;
@@ -72,27 +73,69 @@ document.addEventListener('DOMContentLoaded', function () {
   setSelectedTheme('auto');
   applySystemTheme();
 
+  // Load allowed sites from storage
+  function loadAllowedSites() {
+    chrome.storage.sync.get(['allowedSites'], (data) => {
+      allowedSites = data.allowedSites || [];
+      renderAllowedSitesList();
+    });
+  }
+
+  // Render the list of allowed sites
+  function renderAllowedSitesList() {
+    listContent.innerHTML = '';
+    allowedSites.forEach(site => {
+      const listItem = document.createElement('li');
+      const urlText = document.createElement('span');
+      urlText.textContent = site;
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.textContent = 'x';
+      deleteButton.setAttribute('aria-label', `Delete ${site}`);
+      deleteButton.addEventListener('click', () => {
+        removeUrlFromList(site);
+      });
+
+      listItem.appendChild(urlText);
+      listItem.appendChild(deleteButton);
+      listContent.appendChild(listItem);
+    });
+  }
+
+  // Add URL to the list and save to storage
   function addUrlToList() {
     const urlValue = urlInput.value.trim();
 
     if (!urlValue) return;
 
-    const listItem = document.createElement('li');
-    const urlText = document.createElement('span');
-    urlText.textContent = urlValue;
+    // Extract hostname from URL if full URL is provided
+    let hostname = urlValue;
+    try {
+      const url = new URL(urlValue.startsWith('http') ? urlValue : `https://${urlValue}`);
+      hostname = url.hostname;
+    } catch (e) {
+      // If URL parsing fails, use the raw input
+      hostname = urlValue;
+    }
 
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.textContent = 'x';
-    deleteButton.setAttribute('aria-label', `Delete ${urlValue}`);
-    deleteButton.addEventListener('click', () => {
-      listItem.remove();
-    });
+    // Avoid duplicates
+    if (allowedSites.includes(hostname)) {
+      urlInput.value = '';
+      return;
+    }
 
-    listItem.appendChild(urlText);
-    listItem.appendChild(deleteButton);
-    listContent.appendChild(listItem);
+    allowedSites.push(hostname);
+    chrome.storage.sync.set({ allowedSites: allowedSites });
+    renderAllowedSitesList();
     urlInput.value = '';
+  }
+
+  // Remove URL from the list and save to storage
+  function removeUrlFromList(site) {
+    allowedSites = allowedSites.filter(s => s !== site);
+    chrome.storage.sync.set({ allowedSites: allowedSites });
+    renderAllowedSitesList();
   }
 
   addButton.addEventListener('click', addUrlToList);
@@ -103,4 +146,7 @@ document.addEventListener('DOMContentLoaded', function () {
       addUrlToList();
     }
   });
+
+  // Load sites on page load
+  loadAllowedSites();
 });
