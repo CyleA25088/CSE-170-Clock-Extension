@@ -3,6 +3,25 @@
 // Uses chrome.alarms for persistence — MV3 service workers can be terminated at any time,
 // so setInterval is unreliable. Timer state is stored in chrome.storage.local.
 
+let timerState = {
+  isRunning: false,
+  phase: 'WORK', // 'WORK' or 'BREAK'
+  timeRemaining: 0,
+  workDuration: 60 * 60, // Default 1 hour in seconds
+  breakDuration: 20 * 60, // Default 20 mins in seconds
+};
+
+let timerInterval = null;
+let inactivityNotificationActive = false;
+const inactivityNotificationId = 'focusguard_inactivity';
+
+// The heartbeat function
+function tick() {
+  if (timerState.timeRemaining > 0) {
+    timerState.timeRemaining--;
+  } else {
+    switchPhase();
+  }
 // ---------------------------------------------------------------------------
 // Installation defaults
 // ---------------------------------------------------------------------------
@@ -185,6 +204,68 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse(reset);
   }
 
+  else if (message.action === 'SHOW_INACTIVITY_NOTIFICATION') {
+    if (!inactivityNotificationActive) {
+      inactivityNotificationActive = true;
+      chrome.notifications.create(inactivityNotificationId, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'FocusGuard',
+        message: 'No activity detected. Get back to work when you\'re ready.',
+        requireInteraction: true
+      });
+    } else {
+      console.log('[background] Inactivity notification already active, skipping');
+    }
+  }
+
+  else if (message.action === 'SHOW_ACTIVITY_RESUMED') {
+    if (inactivityNotificationActive) {
+      inactivityNotificationActive = false;
+      chrome.notifications.clear(inactivityNotificationId);
+      console.log('[background] Activity resumed, cleared inactivity notification');
+    }
+  }
+
+  else if (message.action === 'SHOW_BREAK_NOTIFICATION') {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'FocusGuard',
+      message: 'Great job! Time for a break.'
+    });
+  }
+
+  else if (message.action === 'SHOW_WORK_NOTIFICATION') {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'FocusGuard',
+      message: 'Break is over. Time to focus!'
+    });
+  }
+
+  else if (message.action === 'SHOW_BLACKLIST_NOTIFICATION') {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'FocusGuard',
+      message: `Distraction detected on ${message.domain}. Consider focusing on your work instead.`
+    });
+  }
+
+  else if (message.action === 'SHOW_WHITELIST_NOTIFICATION') {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'FocusGuard',
+      message: `Off-topic site detected. Stay on track with your goals.`
+    });
+  }
+
+  // Keep the message channel open for async responses
+  return true; 
+});
   // --- Countdown: get state ---
   if (message.action === 'COUNTDOWN_GET_STATE') {
     chrome.storage.local.get(['countdownState'], ({ countdownState }) => {
